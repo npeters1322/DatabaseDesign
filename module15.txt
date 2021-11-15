@@ -1,0 +1,172 @@
+#1.
+
+
+Views: 
+
+I made this view to select the top 10 scorers as denoted by average points per game. I made this view because
+the code is pretty complicated/long, but it is useful because as games are entered, stats will change, and getting
+the top scorers is something that is done a lot because people want to see who scores the most. It currently gets
+the top scorers from the most recent season because since it ended so recently, people will still be looking
+at stats for it. You could easily take the code for the view and change the season.
+
+CREATE VIEW top_10_scorer_2021 AS
+SELECT p.first_name, p.last_name, s.season, t.university, t.nickname, c.name AS 'Conference', AVG(g.point) AS 'Points per Game'
+from player_historical
+JOIN player p ON (player_historical.player_id = p.player_id)
+JOIN season s ON (player_historical.season_id = s.season_id)
+JOIN team t ON (player_historical.team_id = t.team_id)
+JOIN conference c ON (t.conference_id = c.conference_id)
+JOIN game ON ((t.team_id = game.win_team_id OR t.team_id = game.lose_team_id) AND s.season_id = game.season_id)
+JOIN game_stat g ON (game.game_id = g.game_id AND p.player_id = g.player_id)
+WHERE s.season = 2021 
+GROUP BY p.player_id, s.season_id
+ORDER BY AVG(g.point) DESC
+LIMIT 10;
+
+
+
+I made this view to display the Big Ten standings. I made the view because it has quite a few joins, so it's a little more complicated.
+It also manipulates some of the columns to make the win percentage column, so it will save time not having to type it each time. Seeing
+conference teams ranked by overall win percentage would probably be used a lot because as teams play games, you would want to keep track
+of which teams in the conference are doing the best, so it will probably be used quite often, which gives it another good reason to be a view.
+Games are played very often, so if you wanted to check the standings after every few games, it makes more sense to have this as a view you can
+easily look at instead of having to type it all in each time. Even just having the view for one particular season is useful because it will be checked often.
+
+CREATE VIEW big_10_standing AS
+SELECT s.season, t.university, t.nickname, r.win, r.loss, r.win / (r.win + r.loss) AS 'Win Percentage'
+FROM team t
+JOIN record r ON (t.team_id = r.team_id)
+JOIN conference c ON (t.conference_id = c.conference_id)
+JOIN season s ON (r.season_id = s.season_id)
+WHERE c.name = 'Big Ten Conference' AND s.season = 2021
+ORDER BY r.win / (r.win + r.loss) DESC ;
+
+
+
+#2.
+
+I chose this trigger because of its usefulness. Now, when game results are entered, the record for each team in that season will
+be updated with a win or a loss. This saves time because then you won't have to update the record table on your own after you enter
+game results. 
+
+DELIMITER $$
+CREATE TRIGGER record_after_game
+AFTER INSERT ON game
+FOR EACH ROW
+BEGIN
+	UPDATE record
+		SET
+			record.win = record.win + 1
+			WHERE record.season_id = NEW.season_id AND record.team_id = NEW.win_team_id;
+    	UPDATE record
+    		SET
+			record.loss = record.loss + 1
+			WHERE record.season_id = NEW.season_id AND record.team_id = NEW.lose_team_id ;
+END $$
+DELIMITER ;
+
+
+#3.
+
+
+SATISFIES A:
+
+
+Multiple queries I made satisfy the requirement in A, as I have multiple queries that join tables and sometimes use more than just one join.
+
+
+
+SATISFIES B:
+
+I made this query because it would be interesting to see which teams have won the most games over time. While it is
+interesting to see which teams are doing the best in a particular season, total wins over time is an interesting stat to look at
+because it shows which teams have been the best overall, even if they have a down year.
+
+SELECT t.university, t.nickname, c.name AS 'Conference', SUM(r.win) AS 'Total Wins Across Seasons'
+FROM team t
+JOIN conference c ON (t.conference_id = c.conference_id)
+JOIN record r ON (t.team_id = r.team_id)
+GROUP BY t.university 
+ORDER BY SUM(r.win) DESC;
+
+
+I made this query because it displays some of the most highly sought information when it comes to basketball, like points per game and rebounds per game, to name a couple.
+All the database stores when it comes to stats now is just the stats for each individual game, which is useful to a point. Stats per game, like I got in my query, are much 
+more useful because they really show how the player has performed throughout the season. I also chose the specific university, which could be left out, 
+but I included it because sometimes people just want to see the stats for their favorite team. Season could also be specified to see each player's stats on their favorite team
+in a specific season.
+
+SELECT p.first_name, p.last_name, s.season, t.university, c.name AS 'Conference', AVG(g.minute) AS 'Minutes per Game', AVG(g.point) AS 'Points per Game', AVG(g.assist) AS 'Assists per Game', AVG(g.rebound) AS 'Rebounds per Game'
+from player_historical
+JOIN player p ON (player_historical.player_id = p.player_id)
+JOIN season s ON (player_historical.season_id = s.season_id)
+JOIN team t ON (player_historical.team_id = t.team_id)
+JOIN conference c ON (t.conference_id = c.conference_id)
+JOIN game ON ((t.team_id = game.win_team_id OR t.team_id = game.lose_team_id) AND s.season_id = game.season_id)
+JOIN game_stat g ON (game.game_id = g.game_id AND p.player_id = g.player_id) 
+WHERE t.university = "Michigan State University"
+GROUP BY p.player_id, s.season;
+
+
+
+SATISFIES C:
+
+I made this query because new fans of college basketball might be confused on which teams are in which conferences. The Big 12 and Big Ten seem similar
+just looking at the name, so the new fan might want to see which teams are in which so he/she knows the difference.
+
+SELECT t.university, t.nickname, c.name AS 'CONFERENCE'
+FROM team t
+JOIN conference c ON (t.conference_id = c.conference_id)
+WHERE c.name = 'Big 12 Conference' OR c.name = 'Big Ten Conference' ;
+
+
+SATISFIES D:
+
+I made this query because a lot of teams have nicknames that include "bird" or a type of bird. So, if you
+wanted to find all teams named after birds, this query could accomplish that. There might be other types of birds
+this misses that I could add, but this at least gets most of them. Or, as more teams are added, you might notice
+another type of bird, and could easily extend this query.
+
+SELECT university, nickname 
+FROM team
+WHERE nickname LIKE '%eagle%' OR nickname LIKE '%hawk%' OR nickname LIKE '%bird%';
+
+
+
+
+
+SATISFIES E:
+
+I made this query because one of the biggest things in college basketball is the ranking of the teams. 
+This query displays the preseason Top 25 as taken from the JSON data (which could easily be extended to more weeks). 
+This is handy because each week, rankings are released for the Top 25 teams, so this query allows me to display those
+teams in their ranked order.
+
+SELECT university, nickname, JSON_VALUE(detail, "$.ranking.2021.Preseason") AS 'Preseason Ranking'
+FROM team
+ORDER BY length(JSON_VALUE(detail, "$.ranking.2021.Preseason")), JSON_VALUE(detail, "$.ranking.2021.Preseason")
+LIMIT 25 ;
+
+
+
+
+SATISFIES F:
+
+I made this query to find all of the conference tournament champions for the 2021 season by extracting data from a JSON column.
+I made this query because people might want to know which teams won their respective conference tournaments because
+those teams automatically make the NCAA Tournament. Note that only 31 teams are in the output when there are 32 conferences.
+This is because the Ivy League did not participate in basketball this past season.
+
+SELECT university, nickname, JSON_VALUE(detail, "$.conference_champion[0]") AS 'Conference Tournament Won'
+FROM team
+WHERE JSON_VALUE(detail, "$.conference_champion[0]") LIKE '2021 % Conference Tournament Champion';
+
+
+I made this query to find all the national champions over time by extracting data from a JSON column.
+I made this query because it is interesting to see which schools have actually won championships (and how many),
+and fans might also be interested in seeing all of the champions over time. Note that does not output data from every year
+because I did not have some of the teams in my database, but I got quite a few.
+
+SELECT university, nickname, JSON_QUERY(detail, '$.national_champion') AS "National Championships" 
+FROM team 
+WHERE JSON_SEARCH(detail, 'one', '%National Champion') IS NOT NULL ;
